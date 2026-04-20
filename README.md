@@ -50,7 +50,8 @@ Everything is connected through `[[wiki-links]]`. When Claude needs to answer "T
 
 1. **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** installed and working
 2. **[Obsidian](https://obsidian.md)** installed (for browsing and editing vault files)
-3. **MCP servers** connected in Claude Code:
+3. **[Obsidian Tasks plugin](https://publish.obsidian.md/tasks/Introduction)** -- required for the weekly planning queries (`## This Week -- Open by Day`, `## Forwarded`) to render. Install from Obsidian → Settings → Community plugins → Browse. A theme with alternate checkbox states (e.g., [Minimal](https://minimal.guide/)) is recommended so `[>]`, `[!]`, `[/]` render distinctly.
+4. **MCP servers** connected in Claude Code:
    - **Gmail** -- for email intelligence
    - **[Granola](https://granola.ai)** -- for meeting transcripts
    - **Slack** -- for Slack messages and threads
@@ -109,7 +110,7 @@ Open your vault folder in Obsidian. Enable the Graph View to see how your files 
 The setup will have created three scheduled tasks in Claude Code:
 - **intelligence-sync** -- runs every hour, pulls new meetings/emails/Slack
 - **daily-wrapup** -- runs at 5 PM weekdays, synthesizes the day
-- **weekly-sync** -- runs at 5:25 PM weekdays, builds/updates weekly plan
+- **weekly-sync** -- runs twice daily (9:25 AM + 5:25 PM, every day). On Sundays, also pre-creates next week's weekly planning file so it's ready Monday morning.
 
 Check they're running: in Claude Code, run `/tasks` to see scheduled tasks.
 
@@ -119,9 +120,13 @@ Check they're running: in Claude Code, run `/tasks` to see scheduled tasks.
 
 Once set up, the vault is mostly self-maintaining:
 
-- **Morning:** Open your weekly file (`daily/YYYY-Www.md`) in Obsidian. Review the auto-synced open items and distribute them into your day plan in the manual section.
-- **During the day:** Just work normally. Attend meetings, send emails, chat on Slack. The intelligence sync picks everything up.
-- **End of day:** Read your daily digest (`daily/YYYY-MM-DD.md`) for a synthesized overview. Check off completed items in the weekly file.
+- **Monday morning:** Open the weekly file (`daily/YYYY-Www.md`) -- it was pre-created Sunday night with carry-forward items from last week, grouped by topic. Distribute items into day plans in the manual section.
+- **During the week:** Just work normally. Attend meetings, send emails, chat on Slack. The intelligence sync picks everything up and drops new open items into the auto section of the weekly file.
+- **End of day:** Read the daily digest (`daily/YYYY-MM-DD.md`) for a synthesized overview. In the weekly file, use the `## This Week -- Open by Day` query at the top as a live dashboard, and mark items:
+  - `[x]` done
+  - `[>]` forwarded (pushed to a later day or next week -- stays visible in the `## Forwarded` pile)
+  - `[-]` cancelled
+  - `[!]` blocked
 - **Anytime:** Ask Claude questions with full context: "What did we decide about X?", "Prepare me for my meeting with Y", "What's the status of Project Z?"
 
 ## Asking Questions
