@@ -51,7 +51,8 @@ Everything is connected through `[[wiki-links]]`. When Claude needs to answer "T
 1. **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** installed and working
 2. **[Obsidian](https://obsidian.md)** installed (for browsing and editing vault files)
 3. **[Obsidian Tasks plugin](https://publish.obsidian.md/tasks/Introduction)** -- required for the weekly planning queries (`## This Week -- Open by Day`, `## Forwarded`) to render. Install from Obsidian → Settings → Community plugins → Browse. A theme with alternate checkbox states (e.g., [Minimal](https://minimal.guide/)) is recommended so `[>]`, `[!]`, `[/]` render distinctly.
-4. **MCP servers** connected in Claude Code:
+4. **[QMD](https://github.com/tobi/qmd)** (optional) -- local semantic search over the vault. Install with `npm install -g @tobilu/qmd`, register the vault (`qmd collection add <vault-path> --name <collection> --mask "**/*.md"`), then `qmd embed`. Adds a third search mode alongside flat grep and graph traversal -- useful for conceptual / cross-cutting queries and for duplicate-coverage checks during intelligence sync. See `vault/resources/qmd-reindex-skill.md` for an optional hourly re-indexing task.
+5. **MCP servers** connected in Claude Code:
    - **Gmail** -- for email intelligence
    - **[Granola](https://granola.ai)** -- for meeting transcripts
    - **Slack** -- for Slack messages and threads

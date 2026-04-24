@@ -33,7 +33,20 @@ Pull new information from Granola (meetings), Gmail, and Slack since the last sy
 - Focus on DMs and channels with active participation.
 - Skip broadcast/update-only channels.
 
-## Step 5: Process Each New Item
+## Step 5: Check for Duplicate Coverage (optional -- requires qmd)
+If qmd is installed and the vault is indexed as a collection, run a brief duplicate-coverage check before creating each new intelligence file:
+
+```bash
+qmd search "<meeting title or main topic keywords>" -c <collection-name> | head -20
+```
+
+- If the top 3 hits are thematically distinct from this new item, proceed to Step 6.
+- If the top 1-2 hits are semantically **very close** (same meeting series, same topic already covered today), flag it: print a warning with the matched file paths and skip creation. Err on the side of creating -- better a duplicate than a missed substantive item.
+- If the top hits are **prior coverage** of the same recurring topic (e.g., recurring 1:1), still create the new file but include wiki-links to the top 2-3 prior files in the new file's `## Links` section under a `## Prior Coverage` subheading. This strengthens the graph for future queries.
+
+Runtime: ~1-2 seconds per check. Skip this step entirely if qmd is not installed.
+
+## Step 6: Process Each New Item
 For each new meeting/email/thread, create a processed intelligence file:
 
 ```markdown
@@ -70,7 +83,7 @@ See: [[_raw/YYYY/MM/YYYY-MM-DD-description-raw]]
 
 Also create raw files in intelligence/_raw/YYYY/MM/ with the full unprocessed content.
 
-## Step 6: Propagate Updates
+## Step 7: Propagate Updates
 After processing, check if any intelligence contains:
 - New info about a person --> update their teams/ file
 - A decision affecting a project --> append to that project's Decisions section in projects/

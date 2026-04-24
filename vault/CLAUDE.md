@@ -121,6 +121,21 @@ The vault uses `[[wiki-links]]` to connect files. When answering questions, choo
 
 Graph traversal reads more files but produces qualitatively better answers: second-degree relationships, strategic context, and structural patterns that flat search misses entirely.
 
+**Semantic search (qmd)** -- use as a third mode when grep and graph traversal aren't the right fit:
+- **Cross-cutting conceptual queries** that span many files with no natural hub -- e.g., "What concerns has the CFO raised across everything in the last three weeks?"
+- **Paraphrase / rename search** -- e.g., a project renamed mid-stream; keyword search misses the older content
+- **Orphan rescue** -- content that exists but isn't wiki-linked from any hub
+- **Duplicate-coverage check during intelligence sync** -- before creating a new intelligence file, check whether the topic already has coverage
+
+Commands (requires [qmd](https://github.com/tobi/qmd) installed + vault indexed as a collection):
+- `qmd query "natural-language question" -c <collection-name>` -- hybrid search with reranking (best quality, ~12s)
+- `qmd search "keywords" -c <collection-name>` -- BM25 only (fast)
+- `qmd vsearch "concept phrase" -c <collection-name>` -- vector only
+
+**Do NOT use qmd when** a `teams/<person>.md` or `projects/<name>.md` file is the obvious entry point -- read those directly. The synthesis layer is already the answer for "what is X doing" or "status of project Y" questions. qmd is the backstop, not the primary retrieval tool.
+
+Index can be refreshed manually (`qmd update`) or on a schedule via the optional `qmd-reindex` scheduled task. See `resources/qmd-reindex-skill.md`.
+
 ---
 
 ## Writing Rules -- Where to Store
