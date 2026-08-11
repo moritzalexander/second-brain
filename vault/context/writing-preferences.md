@@ -1,7 +1,7 @@
 # Writing Preferences
 
 ## Rules
-<!-- Add rules as you discover your preferences. Tell Claude "remember this" and it will add rules here. -->
+<!-- Add rules as you discover your preferences. Tell your agent "remember this" and it will add rules here. -->
 <!-- Examples: -->
 <!-- - Never use em dashes -->
 <!-- - Always use active voice -->

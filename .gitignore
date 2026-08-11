@@ -1,9 +1,46 @@
-# Obsidian
+# Obsidian and local app state
 .obsidian/
+.trash/
+
+# Agent and automation state
+.claude/
+.codex/
+.agents/
+state*.sqlite
+logs*.sqlite
+automation-state/
+
+# Local retrieval indexes
+.qmd/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Generated and raw knowledge
+vault/intelligence/**/*.md
+!vault/intelligence/.gitkeep
+!vault/intelligence/_raw/.gitkeep
+vault/documents/**/*.md
+!vault/documents/.gitkeep
+!vault/documents/**/.gitkeep
+vault/daily/*.md
+!vault/daily/.gitkeep
+!vault/daily/Archive/.gitkeep
+
+# Temporary exports and caches
+tmp/
+outputs/
+.firecrawl/
+__pycache__/
+*.py[cod]
+
+# Credentials and environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
 
 # OS files
 .DS_Store
 Thumbs.db
-
-# Claude Code
-.claude/

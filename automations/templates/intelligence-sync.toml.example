@@ -1,0 +1,11 @@
+version = 1
+id = "second-brain-intelligence-sync"
+kind = "cron"
+name = "Second Brain Intelligence Sync"
+prompt = "Work in `{VAULT_ROOT}`. Read `AGENTS.md` and follow `resources/intelligence-sync-skill.md` in full. Process authorized sources using stable IDs, canonical raw evidence, durable backlogs, per-source caps, and source-coverage reporting. Never advance a cursor past an inaccessible item and never publish or write back externally."
+status = "PAUSED"
+rrule = "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=16;BYMINUTE=30;BYSECOND=0"
+model = "{MODEL}"
+reasoning_effort = "medium"
+execution_environment = "local"
+cwds = ["{VAULT_ROOT}"]

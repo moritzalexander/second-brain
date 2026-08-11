@@ -1,0 +1,11 @@
+version = 1
+id = "second-brain-document-radar"
+kind = "cron"
+name = "Second Brain Document Radar"
+prompt = "Work in `{VAULT_ROOT}`. Read `AGENTS.md` and follow `resources/document-ingestion-radar.md`. Continue deferred high-value files first, compare live modification timestamps, preserve manual context, and report new, refreshed, unchanged, skipped, failed, and deferred counts."
+status = "PAUSED"
+rrule = "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=16;BYMINUTE=45;BYSECOND=0"
+model = "{MODEL}"
+reasoning_effort = "medium"
+execution_environment = "local"
+cwds = ["{VAULT_ROOT}"]

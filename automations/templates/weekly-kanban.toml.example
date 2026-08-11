@@ -1,0 +1,11 @@
+version = 1
+id = "second-brain-weekly-kanban"
+kind = "cron"
+name = "Second Brain Weekly Kanban"
+prompt = "Work in `{VAULT_ROOT}`. Read `AGENTS.md` and follow the installed `weekly-kanban-overview` skill. Prepare the next ISO workweek, put every unresolved carried card on Monday, add only minimal high-confidence context, place meeting preparation one working day early, preserve target-week edits, and archive older planning files."
+status = "PAUSED"
+rrule = "FREQ=WEEKLY;BYDAY=FR;BYHOUR=14;BYMINUTE=0;BYSECOND=0"
+model = "{MODEL}"
+reasoning_effort = "medium"
+execution_environment = "local"
+cwds = ["{VAULT_ROOT}"]

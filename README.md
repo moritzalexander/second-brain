@@ -1,188 +1,119 @@
-# Second Brain
+# Second Brain 2.0
 
-A persistent knowledge vault that gives AI agents full context across conversations.
+A private, source-backed knowledge vault for AI agents and Obsidian.
 
-Second Brain turns Claude Code into a long-term memory system. It continuously ingests your meetings, emails, and Slack messages, processes them into structured intelligence files, and connects everything through a graph of wiki-links. The result: Claude always knows what you discussed, decided, and need to do next.
+Second Brain 2.0 turns meetings, email, chat, and documents into durable Markdown records. It keeps raw evidence separate from synthesis, links intelligence to people and projects, prepares a compact weekly Kanban, and checks that scheduled ingestion is both running and complete.
 
----
+The repository contains a public template only. Your vault content, credentials, source IDs, and automation state stay outside Git.
 
-## How It Works
+## What changed in 2.0
 
-```
-You work normally                    Three agents run in the background
-  Meetings (Granola)  ──┐
-  Emails (Gmail)      ──┼──▶  Intelligence Sync (hourly)
-  Slack messages      ──┘         │
-                                  ▼
-                           Processed intelligence files
-                           (tagged, linked, cross-referenced)
-                                  │
-                                  ▼
-                           Daily Wrap-up (5 PM)
-                           (synthesized digest by project)
-                                  │
-                                  ▼
-                           Weekly Sync (5:25 PM)
-                           (open items → weekly plan)
-```
+The original template used one hourly ingestion job, a daily digest, and a classic weekly note. The current architecture is modular and deliberately lower cadence:
 
-The vault lives as a folder of markdown files you can browse in [Obsidian](https://obsidian.md). Claude reads the vault at the start of every conversation, giving it full context about who you are, what you're working on, and what happened recently.
+- source adapters for finalized meeting transcripts, email, chat, and documents
+- stable-ID deduplication and cross-source meeting matching
+- separate raw evidence and processed intelligence records
+- document radar for reusable Docs, Slides, PDFs, and spreadsheets
+- QMD semantic indexing as a local retrieval backstop
+- an editable Monday-to-Friday Task List Kanban
+- deterministic carry-forward of unresolved work into Monday
+- sync-health checks that verify execution and source coverage
+- optional competitive-radar modules
 
-## Vault Structure
+## System at a glance
 
-```
-your-vault/
-├── CLAUDE.md              ← Navigation and operating rules for Claude
-├── context/               ← Who you are, your company, strategy, preferences
-├── daily/                 ← Synthesized daily digests and weekly plans
-├── intelligence/          ← Processed meetings, emails, Slack threads
-│   └── _raw/              ← Full raw transcripts
-├── projects/              ← Active projects with status, decisions, open questions
-├── resources/             ← Templates, frameworks, agent skill files
-└── teams/                 ← One file per person you work with
+```text
+Sources                         Durable vault                     Work surfaces
+Calls, email, chat, docs  ->    raw evidence + intelligence  ->   project and people hubs
+                                      |                           daily digests
+                                      |                           weekly Kanban
+                                      +-> local QMD index          agent skills
+
+Scheduled modules
+  intelligence sync  ->  document radar  ->  daily wrap-up
+  weekly Kanban      ->  QMD reindex      ->  sync health check
 ```
 
-Everything is connected through `[[wiki-links]]`. When Claude needs to answer "Tell me about Project X," it doesn't just grep -- it follows the link graph from the project file through related intelligence, team profiles, and strategic context.
+## Vault structure
 
----
+```text
+vault/
+├── AGENTS.md                 # agent navigation and operating rules
+├── CLAUDE.md                 # compatibility pointer to AGENTS.md
+├── competitors/              # durable competitor profiles
+├── context/                  # identity, company, strategy, preferences
+├── daily/                    # daily digests and current weekly planning
+│   └── Archive/              # older daily and weekly planning files
+├── documents/                # reusable records derived from files
+├── intelligence/             # processed meetings, email, and chat
+│   └── _raw/                 # canonical source evidence
+├── projects/                 # active project hubs
+├── resources/                # local runbooks and templates
+└── teams/                    # people profiles
+```
+
+## Design principles
+
+1. **Evidence before synthesis.** Store the full authorized source separately, then derive a concise record with links back to it.
+2. **Stable identity before fuzzy matching.** Deduplicate by source IDs first. Use title, date, attendees, and calendar IDs only for cross-source matching.
+3. **Hubs are derived views.** Project, person, context, and competitor files summarize the latest state; dated intelligence remains the evidence trail.
+4. **Human planning stays editable.** Automation may add missing cards but must preserve user-created cards, placement, links, colors, completion state, and stars.
+5. **Minimal generation.** A planning board should surface real commitments, not fill empty space.
+6. **Health means coverage.** A successful run is not healthy if eligible source items were skipped or capped without remaining in a backlog.
+7. **Private by default.** The template is public; operational data and generated knowledge are not.
 
 ## Prerequisites
 
-1. **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** installed and working
-2. **[Obsidian](https://obsidian.md)** installed (for browsing and editing vault files)
-3. **[Obsidian Tasks plugin](https://publish.obsidian.md/tasks/Introduction)** -- required for the weekly planning queries (`## This Week -- Open by Day`, `## Forwarded`) to render. Install from Obsidian → Settings → Community plugins → Browse. A theme with alternate checkbox states (e.g., [Minimal](https://minimal.guide/)) is recommended so `[>]`, `[!]`, `[/]` render distinctly.
-4. **[QMD](https://github.com/tobi/qmd)** (optional) -- local semantic search over the vault. Install with `npm install -g @tobilu/qmd`, register the vault (`qmd collection add <vault-path> --name <collection> --mask "**/*.md"`), then `qmd embed`. Adds a third search mode alongside flat grep and graph traversal -- useful for conceptual / cross-cutting queries and for duplicate-coverage checks during intelligence sync. See `vault/resources/qmd-reindex-skill.md` for an optional hourly re-indexing task.
-5. **MCP servers** connected in Claude Code:
-   - **Gmail** -- for email intelligence
-   - **[Granola](https://granola.ai)** -- for meeting transcripts
-   - **Slack** -- for Slack messages and threads
-   - **Google Calendar** (optional) -- for schedule-aware context
+- an AI coding agent that can read and write local files and run scheduled automations
+- [Obsidian](https://obsidian.md/)
+- [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) and [Task List Kanban](https://github.com/dsebastien/obsidian-task-list-kanban) for the weekly board
+- optional [QMD](https://github.com/tobi/qmd) for local hybrid and semantic search
+- connectors or local read-only adapters for the sources you explicitly authorize
 
----
+Pin plugin versions in your operational vault. Task List Kanban UI extensions are described in [docs/obsidian-kanban.md](docs/obsidian-kanban.md); this repository does not redistribute a compiled community-plugin bundle.
 
-## Quick Start
+## Quick start
 
-### 1. Clone the repo
+1. Clone this repository and copy `vault/` to a private location.
+2. Replace the placeholders in `vault/AGENTS.md` and the context templates.
+3. Read `vault/resources/setup-skill.md` with your agent and configure only the sources you approve.
+4. Install the optional reusable skills from `skills/` into your agent's skill directory.
+5. Create scheduled automations from `automations/templates/`, using your vault path, timezone, and chosen cadence.
+6. Run every module once in dry-run or on-demand mode, then inspect the created files before enabling recurrence.
+7. Run `python3 scripts/validate_public_template.py` before publishing changes.
+
+See [docs/architecture.md](docs/architecture.md) for the data flow and [docs/migration-v1-to-v2.md](docs/migration-v1-to-v2.md) for an upgrade checklist.
+
+The optional local Wispr Flow adapter is documented under [adapters/wispr-flow](adapters/wispr-flow/README.md). Connector-backed sources remain configuration, not hard-coded dependencies.
+
+## Weekly planning
+
+Each ISO week uses two files:
+
+- `daily/YYYY-Www-kanban.md`: board configuration
+- `daily/YYYY-Www-kanban-tasks.md`: editable task source
+
+The Friday automation prepares the next workweek. Every unresolved root task and unresolved child task from the preceding board is carried into Monday as a planning inbox. Calendar-derived meeting preparation is placed on the previous working day. Already existing target-week files are merged, never replaced.
+
+## Security boundary
+
+Never commit:
+
+- raw transcripts, email threads, chat exports, or customer files
+- personal names, company-confidential context, or account data
+- tokens, cookies, database files, local source IDs, or automation state
+- local absolute paths or generated QMD indexes
+- a private vault copied into this template repository
+
+The multiplayer/team pattern requires an additional publishing boundary. Do not point a shared team graph directly at personal email, WhatsApp, or private meeting stores. See [docs/privacy-and-security.md](docs/privacy-and-security.md).
+
+## Validation
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/second-brain.git
-cd second-brain
+python3 -m unittest discover -s skills/weekly-kanban-overview/tests
+python3 scripts/validate_public_template.py
 ```
-
-### 2. Copy the vault template to your preferred location
-
-```bash
-cp -r vault/ ~/path/to/your/vault
-```
-
-Pick a location that syncs across devices (Google Drive, iCloud, Dropbox) so you can browse in Obsidian from anywhere.
-
-### 3. Run the interactive setup
-
-Open Claude Code in the vault directory and run the setup skill:
-
-```
-cd ~/path/to/your/vault
-claude
-```
-
-Then tell Claude:
-
-```
-Read and follow the instructions in resources/setup-skill.md to set up my Second Brain.
-```
-
-The setup skill will:
-- Ask you about your role, team, projects, and stakeholders
-- Generate your personalized `CLAUDE.md`
-- Create context files, team profiles, and project files
-- Set up the three automated agents (intelligence sync, daily wrap-up, weekly sync)
-- Do an initial backfill of your recent meetings and emails
-- Connect the wiki-link graph
-
-The whole process takes about 15-20 minutes.
-
-### 4. Open in Obsidian
-
-Open your vault folder in Obsidian. Enable the Graph View to see how your files are connected.
-
-### 5. Verify the agents
-
-The setup will have created three scheduled tasks in Claude Code:
-- **intelligence-sync** -- runs every hour, pulls new meetings/emails/Slack
-- **daily-wrapup** -- runs at 5 PM weekdays, synthesizes the day
-- **weekly-sync** -- runs twice daily (9:25 AM + 5:25 PM, every day). On Sundays, also pre-creates next week's weekly planning file so it's ready Monday morning.
-
-Check they're running: in Claude Code, run `/tasks` to see scheduled tasks.
-
----
-
-## Daily Usage
-
-Once set up, the vault is mostly self-maintaining:
-
-- **Monday morning:** Open the weekly file (`daily/YYYY-Www.md`) -- it was pre-created Sunday night with carry-forward items from last week, grouped by topic. Distribute items into day plans in the manual section.
-- **During the week:** Just work normally. Attend meetings, send emails, chat on Slack. The intelligence sync picks everything up and drops new open items into the auto section of the weekly file.
-- **End of day:** Read the daily digest (`daily/YYYY-MM-DD.md`) for a synthesized overview. In the weekly file, use the `## This Week -- Open by Day` query at the top as a live dashboard, and mark items:
-  - `[x]` done
-  - `[>]` forwarded (pushed to a later day or next week -- stays visible in the `## Forwarded` pile)
-  - `[-]` cancelled
-  - `[!]` blocked
-- **Anytime:** Ask Claude questions with full context: "What did we decide about X?", "Prepare me for my meeting with Y", "What's the status of Project Z?"
-
-## Asking Questions
-
-Claude uses two search strategies depending on your question:
-
-- **Flat search** (grep) -- for narrow lookups: "What did Alice say about pricing on Thursday?"
-- **Graph traversal** -- for broad context: "Tell me everything about the customer acceleration project" or "Prepare me for a meeting with Bob"
-
-Graph traversal follows wiki-links across files, reading first-degree and second-degree connections to build a complete picture.
-
----
-
-## Customization
-
-### Adding a new intelligence source
-
-Edit `resources/intelligence-sync-skill.md` to add new data sources. The processing format and file naming conventions are documented in `CLAUDE.md`.
-
-### Changing agent schedules
-
-In Claude Code, use the scheduled tasks tools to update cron expressions:
-- Every 30 minutes: `*/30 * * * *`
-- Every 2 hours during business hours: `0 9,11,13,15,17 * * 1-5`
-
-### Adding context files
-
-Create new files in `context/` for any slow-changing background information Claude should know: company strategy, competitive landscape, org structure, etc. The setup skill creates initial ones, but you can add more anytime.
-
-### Writing preferences
-
-Add communication rules to `context/writing-preferences.md`. Examples:
-- "Never use em dashes"
-- "Always use bullet points over paragraphs"
-- "Match the tone of the recipient"
-
----
-
-## Architecture
-
-See [docs/architecture.md](docs/architecture.md) for a deep dive into:
-- The three-agent processing pipeline
-- File naming and frontmatter conventions
-- Graph traversal procedure
-- Propagation rules (how intelligence updates flow to projects, teams, and context)
-- Weekly sync merge logic (preserving user triage)
-
----
-
-## Requirements
-
-- Claude Code with Claude Opus or Sonnet
-- MCP servers for your data sources
-- ~5-10 minutes/day for weekly planning (optional but recommended)
 
 ## License
 
-MIT -- see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
