@@ -1,0 +1,11 @@
+version = 1
+id = "second-brain-sync-health-check"
+kind = "cron"
+name = "Second Brain Sync Health Check"
+prompt = "Work in `{VAULT_ROOT}`. Read `AGENTS.md` and follow `resources/sync-health-check-skill.md`. Verify exactly one active job per enabled module, reconcile eligible source IDs with covered, pending, skipped, and missing IDs, check document freshness and QMD, and only report healthy when execution and coverage pass."
+status = "PAUSED"
+rrule = "FREQ=WEEKLY;BYDAY=MO;BYHOUR=8;BYMINUTE=30;BYSECOND=0"
+model = "{MODEL}"
+reasoning_effort = "minimal"
+execution_environment = "local"
+cwds = ["{VAULT_ROOT}"]

@@ -1,0 +1,11 @@
+version = 1
+id = "second-brain-qmd-reindex"
+kind = "cron"
+name = "Second Brain QMD Reindex"
+prompt = "Work in `{VAULT_ROOT}` and follow `resources/qmd-reindex-skill.md`. Refresh the existing `{QMD_COLLECTION}` collection in the order status, update, embed, status. Do not create a second index or use destructive recovery."
+status = "PAUSED"
+rrule = "FREQ=DAILY;INTERVAL=2;BYHOUR=4;BYMINUTE=20;BYSECOND=0"
+model = "{MODEL}"
+reasoning_effort = "minimal"
+execution_environment = "local"
+cwds = ["{VAULT_ROOT}", "{QMD_CACHE_ROOT}", "{QMD_CONFIG_ROOT}"]

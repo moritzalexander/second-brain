@@ -1,215 +1,187 @@
 # Architecture
 
-How the Second Brain vault works as a system.
+Second Brain 2.0 is a file-based knowledge system with independent ingestion, synthesis, planning, indexing, and health modules. Markdown is the durable interface. Connectors and agents may change without forcing a migration of the knowledge itself.
 
----
+## Processing model
 
-## The Three-Agent Pipeline
-
-The vault is powered by three automated agents that run as scheduled tasks in Claude Code. Each agent builds on the output of the previous one.
-
-```
-Source Data                 Agent 1                  Agent 2                Agent 3
-────────────               ──────────               ──────────             ──────────
-Granola (meetings)  ───┐
-Gmail (emails)      ───┼──▶ Intelligence Sync  ──▶  Daily Wrap-up  ──▶  Weekly Sync
-Slack (messages)    ───┘    (hourly)                 (5 PM weekdays)      (5:25 PM weekdays)
-                            │                        │                    │
-                            ▼                        ▼                    ▼
-                            intelligence/            daily/               daily/
-                            intelligence/_raw/        YYYY-MM-DD.md        YYYY-Www.md
-```
-
-### Agent 1: Intelligence Sync (hourly)
-
-**Input:** Raw data from Granola, Gmail, and Slack APIs via MCP servers.
-
-**Output:** Two files per item:
-- `intelligence/YYYY/MM/YYYY-MM-DD-source-description.md` -- processed, tagged, linked
-- `intelligence/_raw/YYYY/MM/YYYY-MM-DD-source-description-raw.md` -- verbatim transcript or full email thread
-
-**Processing logic:**
-1. Check what's new since the last sync (compare against existing filenames)
-2. Pull raw content from each source
-3. Read vault context (CLAUDE.md, projects/, context/) to understand significance
-4. Extract key topics, decisions, action items
-5. Tag with YAML frontmatter (date, source, type, projects, people, tags)
-6. Write both processed and raw files
-7. Propagate updates to teams/, projects/, or context/ as needed
-
-**Key design decision:** Raw transcripts are always stored separately from processed summaries. The vault's own context produces better summaries than any external tool, so we always keep the raw source for re-processing.
-
-### Agent 2: Daily Wrap-up (5 PM weekdays)
-
-**Input:** All intelligence files from today + current project files for context.
-
-**Output:** `daily/YYYY-MM-DD.md` -- a synthesized daily digest.
-
-**Processing logic:**
-1. Gather all intelligence files matching today's date
-2. Read project files for status context
-3. Synthesize by project/topic (not just summarize -- add insight)
-4. Flag decisions, escalations, and open items
-5. Review project health (stale projects, missing project files, scope drift)
-
-The daily digest is the user's end-of-day briefing. It should be readable in 3-5 minutes and highlight anything urgent or surprising.
-
-### Agent 3: Weekly Sync (5:25 PM weekdays)
-
-**Input:** Daily digests from the current week + existing weekly file.
-
-**Output:** `daily/YYYY-Www.md` -- a weekly planning file with two zones.
-
-**The two-zone design:**
-- **Auto section** (top): Open items aggregated from daily digests. Rebuilt each sync.
-- **Manual section** (bottom): The user's day-by-day plan. Never touched by automation.
-
-The `<!-- MANUAL SECTION -->` HTML comment separates the two zones. Everything below it is preserved byte-for-byte.
-
-**Checkbox merge logic:**
-The weekly sync preserves the user's triage decisions. If the user checks off an item `[x]` in the weekly file, it stays checked even if the daily source still has `[ ]`. The merge algorithm:
-1. Extract all `[x]` items from the current weekly auto section (the "overrides")
-2. Pull items from each day's daily digest
-3. For each item: if it's in the overrides set OR marked `[x]` in the daily source, keep it `[x]`
-4. Deduplicate across days (same task appears in Monday and Tuesday -- keep only the Tuesday version)
-
----
-
-## File Naming Conventions
-
-All files use **lowercase-kebab-case** with date prefixes for chronological sorting.
-
-| Source | Pattern | Example |
-|--------|---------|---------|
-| Meeting | `YYYY-MM-DD-meeting-description.md` | `2026-04-03-meeting-team-weekly.md` |
-| Email | `YYYY-MM-DD-email-subject-summary.md` | `2026-04-03-email-pricing-update.md` |
-| Slack | `YYYY-MM-DD-slack-description.md` | `2026-04-03-slack-activity.md` |
-| Raw | Same as above + `-raw` suffix | `2026-04-03-meeting-team-weekly-raw.md` |
-
-Files are organized by year and month:
-```
-intelligence/
-├── 2026/
-│   ├── 03/
-│   │   ├── 2026-03-15-meeting-product-review.md
-│   │   └── 2026-03-15-email-budget-approval.md
-│   └── 04/
-│       └── 2026-04-01-meeting-kickoff.md
-└── _raw/
-    └── 2026/
-        └── 03/
-            └── 2026-03-15-meeting-product-review-raw.md
+```text
+Authorized source adapters
+  meeting transcripts | email | chat | Drive/files | manual notes
+                         |
+                         v
+                 Intake and deduplication
+                 stable source IDs first
+                         |
+              +----------+-----------+
+              |                      |
+              v                      v
+       canonical raw record    processed intelligence
+       intelligence/_raw/      intelligence/YYYY/MM/
+                                      |
+                    +-----------------+-----------------+
+                    |                 |                 |
+                    v                 v                 v
+                projects/          teams/          competitors/
+                    |                 |                 |
+                    +-----------------+-----------------+
+                                      |
+                         daily digest and weekly Kanban
+                                      |
+                                 QMD retrieval
 ```
 
----
+## Modules
 
-## Frontmatter Schema
+### Intelligence sync
 
-Every intelligence file has YAML frontmatter for structured querying:
+Reads only new, finalized, authorized source items. For each eligible item it:
+
+1. resolves a stable source identifier
+2. checks source-specific and cross-source deduplication keys
+3. stores one canonical raw record
+4. creates a dated, structured intelligence record
+5. links known people, projects, and competitors
+6. propagates material changes into durable hubs
+7. records processed, deferred, failed, and capped items separately
+
+Meeting adapters should ingest full finalized transcripts, not the source tool's generated summary. If two tools captured the same meeting, use the calendar event ID when available, then date, normalized title, and overlapping participants. Keep all available source IDs on the canonical record.
+
+### Document radar
+
+Detects recently changed reusable files and creates Markdown records under `documents/`. It records the source file identity and current modification timestamp, extracts usable content, and links the artifact to relevant projects and people. Documents are not treated as current merely because an older record exists.
+
+### Daily wrap-up
+
+Runs on a reduced cadence and synthesizes new intelligence by project. It highlights decisions, escalations, and open work. It also flags stale projects, missing hubs, and scope drift. It does not replace dated source records.
+
+### Weekly Kanban
+
+Creates a two-file planning surface for the next ISO week. The task source stores cards as normal Markdown checkboxes with a project tag and weekday tag. The board configuration groups project tags into rows and weekday tags into columns.
+
+The deterministic baseline:
+
+- carries every unresolved card and unresolved subtask from the preceding week
+- resets carried work to Monday
+- drops completed and cancelled root cards
+- preserves links and `#weekly-starred`
+- merges into an existing target week without changing user placement
+- archives daily and weekly planning files older than the previous ISO week
+
+Calendar and vault context may add a small number of high-confidence cards after the baseline. Meeting preparation belongs on the previous working day.
+
+### QMD reindex
+
+QMD is a local retrieval backstop for conceptual queries, renamed topics, and orphaned content. The safe refresh sequence is:
+
+```text
+status -> update -> embed -> status
+```
+
+The index is derived state. Keep it outside the public repository and rebuild it from the vault.
+
+### Sync health check
+
+Health has two independent dimensions:
+
+- **execution:** expected automations ran, completed, and wrote valid state
+- **coverage:** all eligible source items are processed or remain explicitly pending
+
+A green execution log with missing source coverage is not healthy. Capped and failed source IDs must remain in a persistent backlog until processed or intentionally dismissed.
+
+## Durable records
+
+### Intelligence frontmatter
 
 ```yaml
 ---
-date: 2026-04-03          # Date of the event (not processing date)
-source: granola            # granola | gmail | slack | manual
-type: meeting              # meeting | email | thread | decision | research
-projects:                  # List of related project paths
-  - product-launch/go-to-market
-  - infrastructure/security-audit
-people:                    # People involved or mentioned
-  - Jane Doe
-  - John Smith
-tags:                      # Flexible topic tags
-  - pricing
-  - q2-planning
-  - customer-feedback
+date: 2026-04-03
+source: meeting_adapter
+type: meeting
+source_ids:
+  meeting_id: source-stable-id
+  calendar_event_id: optional-event-id
+projects: [program/project]
+people: [Jane Doe]
+tags: [customer-feedback, q2-planning]
+confidentiality: private
 ---
 ```
 
-Project files use a different schema:
+Source adapters may add their stable IDs. Avoid encoding source identity only in filenames.
+
+### Project frontmatter
 
 ```yaml
 ---
-status: active             # active | paused | completed
+status: active
 owner: Jane Doe
-stakeholders:
-  - John Smith
-  - Alice Johnson
+stakeholders: [John Smith]
 started: 2026-01-15
 target: 2026-06-30
 ---
 ```
 
----
+### File naming
 
-## Graph Traversal
+| Record | Pattern |
+|---|---|
+| Intelligence | `intelligence/YYYY/MM/YYYY-MM-DD-source-description.md` |
+| Raw evidence | `intelligence/_raw/YYYY/MM/YYYY-MM-DD-source-description-raw.md` |
+| Document | `documents/{kind}/YYYY/MM/YYYY-MM-DD-description.md` |
+| Daily digest | `daily/YYYY-MM-DD.md` |
+| Weekly board | `daily/YYYY-Www-kanban.md` |
+| Weekly tasks | `daily/YYYY-Www-kanban-tasks.md` |
+| Project | `projects/{program}/{project}.md` |
+| Person | `teams/firstname-lastname.md` |
+| Competitor | `competitors/company-name.md` |
 
-The vault uses `[[wiki-links]]` (Obsidian-style) to connect files. This creates a navigable knowledge graph.
+## Retrieval
 
-### When to use flat search vs. graph traversal
+Use the cheapest reliable method:
 
-| Question type | Strategy | Example |
-|--------------|----------|---------|
-| Specific fact lookup | Flat (grep) | "What was the Q2 revenue target?" |
-| Date-bounded search | Flat (glob) | "What happened last Thursday?" |
-| Person deep-dive | Graph | "Tell me about Jane Doe" |
-| Project status | Graph | "What's the state of the product launch?" |
-| Meeting prep | Graph | "Prepare me for my meeting with the CEO" |
+1. **Direct hub read** for a known person, project, competitor, or context topic.
+2. **Flat search** for names, dates, IDs, exact phrases, or known filenames.
+3. **Graph traversal** for broad context: start from the hub, read first-degree links, follow up to ten relevant second-degree links, then run a flat orphan check.
+4. **QMD** for conceptual, paraphrased, or cross-cutting questions without an obvious hub.
 
-### Graph traversal procedure
+Every answer should distinguish source-backed facts, derived hub summaries, and agent inference.
 
-```
-Start Node (teams/jane-doe.md)
-    │
-    ├──▶ First-degree links (read all [[wiki-links]] in the file)
-    │    ├── projects/product-launch/overview.md
-    │    ├── intelligence/2026/03/2026-03-20-meeting-product-review.md
-    │    └── intelligence/2026/04/2026-04-01-email-launch-timeline.md
-    │
-    ├──▶ Second-degree links (follow relevant links from first-degree files, up to 10)
-    │    ├── intelligence/2026/03/2026-03-18-meeting-design-review.md
-    │    └── teams/john-smith.md
-    │
-    └──▶ Cross-reference (grep for "Jane Doe" to catch orphaned mentions)
-         └── intelligence/2026/04/2026-04-03-slack-activity.md (not linked but mentions Jane)
-```
+## Propagation
 
-Graph traversal reads more files but catches second-degree relationships, strategic context, and structural patterns that flat search misses.
+| Evidence indicates | Derived update |
+|---|---|
+| material project decision | append to the project decision log with a source link |
+| new responsibility for a known person | update the person profile with a source link |
+| durable strategy or org change | update the relevant context hub |
+| material competitor development | update the competitor profile |
+| possible new project | flag it for confirmation before creating a hub |
 
----
+Propagation never replaces the dated intelligence record. Conflicts remain visible and are resolved through explicit supersession, not silent overwrite.
 
-## Propagation Rules
+## Scheduling
 
-When the intelligence sync processes a new file, it checks for updates that should propagate to other parts of the vault:
+The template intentionally does not impose one universal cadence. Start low and increase only if the value justifies the cost. A practical default is:
 
-| Detected in intelligence | Action | Target |
-|------------------------|--------|--------|
-| New responsibility for a person | Append to their profile | `teams/firstname-lastname.md` |
-| Decision affecting a project | Prepend to Decisions section (with date) | `projects/path/file.md` |
-| Change in org structure or strategy | Update relevant section | `context/org-structure.md` or `context/strategy.md` |
-| New project mentioned | Flag for user confirmation | Don't auto-create -- ask the user |
-| Person not yet in teams/ | Create a stub profile | `teams/firstname-lastname.md` |
+| Module | Suggested cadence |
+|---|---|
+| Intelligence sync | weekdays, once or twice daily |
+| Document radar | shortly after intelligence sync |
+| Daily wrap-up | Monday, Wednesday, Friday |
+| Weekly Kanban | Friday before the planning session |
+| QMD reindex | every two days |
+| Sync health | weekly, after at least one normal sync window |
 
-The intelligence file is always the **source record**. Propagation adds a summary with a wiki-link back to the intelligence entry.
+Use non-overlapping times so source ingestion finishes before synthesis begins.
 
----
+## Failure handling
 
-## Deduplication
+- Never advance a source cursor past an unreadable item.
+- Never interpret an authorization error as an empty inbox.
+- Store transient failures in a retryable backlog.
+- Never delete raw records during deduplication; choose one canonical record and link alternates.
+- Never overwrite user-authored weekly cards or archive collisions.
+- Treat screen captures as orientation, not as evidence that a source action completed.
 
-Before processing any item, the intelligence sync checks for existing files:
+## Public template boundary
 
-1. **Filename match:** Does `intelligence/YYYY/MM/YYYY-MM-DD-*description*` already exist?
-2. **Content match:** For emails, check if the subject line is already covered in an existing thread file.
-3. **Skip or append:** If an existing file covers the same event, skip. If the source has new content (e.g., meeting was extended), append rather than create a duplicate.
-
----
-
-## Project Health Monitoring
-
-The daily wrap-up acts as a project health monitor:
-
-| Signal | Meaning | Action |
-|--------|---------|--------|
-| No intelligence tagged to a project in 2+ weeks | Project may be stale or completed | Flag for user: "Should this be marked paused/completed?" |
-| Intelligence tagged to a non-existent project path | A new project may have emerged | Flag for user: "Should I create a project file for X?" |
-| Two projects frequently co-occur in intelligence | Projects may be converging | Flag for user: "Should these be merged?" |
-| Project scope has drifted from its description | Description may need updating | Flag for user with suggested updates |
+This repository defines structure and reusable logic. An operational vault contains confidential data and derived state. The two must remain separate. Run the public-template validator before every commit or pull request.

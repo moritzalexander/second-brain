@@ -1,0 +1,11 @@
+version = 1
+id = "second-brain-daily-wrapup"
+kind = "cron"
+name = "Second Brain Daily Wrap-up"
+prompt = "Work in `{VAULT_ROOT}`. Read `AGENTS.md` and follow `resources/daily-wrapup-skill.md`. Synthesize today's verified intelligence by project, lead with decisions and open work, link sources, and flag partial source coverage."
+status = "PAUSED"
+rrule = "FREQ=WEEKLY;BYDAY=MO,WE,FR;BYHOUR=17;BYMINUTE=5;BYSECOND=0"
+model = "{MODEL}"
+reasoning_effort = "medium"
+execution_environment = "local"
+cwds = ["{VAULT_ROOT}"]

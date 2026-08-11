@@ -1,65 +1,79 @@
 ---
 name: intelligence-sync
-description: Pull new meetings, emails, and Slack activity into the Second Brain vault every hour.
+description: Ingest new authorized meetings, email, and chat into raw and processed Second Brain records with stable-ID deduplication, backlogs, and source-coverage reporting.
 ---
 
-You are the Intelligence Sync agent for {USER_NAME}'s Second Brain vault.
+# Intelligence sync
 
-VAULT ROOT: {VAULT_ROOT}
+Work in `{VAULT_ROOT}`. Read `AGENTS.md` before processing data.
 
-## Your Job
-Pull new information from Granola (meetings), Gmail, and Slack since the last sync, process it into intelligence files, and propagate updates to teams/projects/context as needed.
+## Configuration
 
-## Step 1: Read Context
-- Read CLAUDE.md at the vault root for full instructions and conventions.
-- Check the latest files in intelligence/ to determine when the last sync ran (look at the most recent file dates).
+Define enabled sources in the automation prompt or a private local config. For each source specify:
 
-## Step 2: Pull New Meetings from Granola
-- Use list_meetings with time_range "this_week" (or custom range covering the last 2 hours).
-- For each meeting not already in intelligence/, pull TWO things:
-  1. `get_meetings` for the AI summary, attendees, and metadata (used to build the processed intelligence file)
-  2. `get_meeting_transcript` for the verbatim word-by-word transcript (stored as the raw file)
-- The raw file (`_raw/`) MUST contain the verbatim transcript from `get_meeting_transcript`, NOT the Granola AI summary. The transcript uses "Me:" ({USER_NAME}) and "Them:" (other speakers) labels.
-- Skip meetings that already have a corresponding file (match by date + title pattern).
+- adapter or connector name
+- authorized account or mailbox identity
+- strict scan window and wider backstop window
+- stable source ID field
+- maximum items per run
+- raw-content retrieval method
+- cursor and pending-backlog location
 
-## Step 3: Pull New Emails from Gmail
-- Use gmail_search_messages with query "newer_than:2h" and maxResults 50.
-- Filter for relevance: skip calendar invites (Invitation:/Accepted:/Declined:), automated meeting notes, promotions, spam, delivery notifications, and comment notifications UNLESS they contain substantive discussion.
-- Focus on: emails from/to key stakeholders, project-related threads, decisions, action items.
-- Group related email threads into single intelligence files.
+Do not put credentials or operational IDs in this file.
 
-## Step 4: Pull Slack Activity
-- Use slack_search_public_and_private to search for messages from {USER_NAME} or mentioning them in the last 2 hours.
-- Focus on DMs and channels with active participation.
-- Skip broadcast/update-only channels.
+For Wispr Flow on macOS, the public template includes the optional read-only adapter at `adapters/wispr-flow/wispr_flow_meetings.py`. Copy it into the private vault or invoke it from a separately cloned template repository; do not make the operational vault public.
 
-## Step 5: Check for Duplicate Coverage (optional -- requires qmd)
-If qmd is installed and the vault is indexed as a collection, run a brief duplicate-coverage check before creating each new intelligence file:
+## Run order
 
-```bash
-qmd search "<meeting title or main topic keywords>" -c <collection-name> | head -20
-```
+1. Read persistent cursor and backlog state.
+2. Process oldest pending items before new discovery.
+3. Run a strict recent scan, then the configured wider backstop.
+4. Deduplicate by stable source ID before fetching large bodies.
+5. Fetch and write one large transcript or thread at a time.
+6. Write its canonical raw record and processed record before fetching the next.
+7. Propagate material updates into existing hubs.
+8. Save cursors only through the last successfully processed item.
+9. Report discovery, coverage, processing, skip, failure, cap, and pending counts per source.
 
-- If the top 3 hits are thematically distinct from this new item, proceed to Step 6.
-- If the top 1-2 hits are semantically **very close** (same meeting series, same topic already covered today), flag it: print a warning with the matched file paths and skip creation. Err on the side of creating -- better a duplicate than a missed substantive item.
-- If the top hits are **prior coverage** of the same recurring topic (e.g., recurring 1:1), still create the new file but include wiki-links to the top 2-3 prior files in the new file's `## Links` section under a `## Prior Coverage` subheading. This strengthens the graph for future queries.
+## Meetings
 
-Runtime: ~1-2 seconds per check. Skip this step entirely if qmd is not installed.
+- Ingest only finalized meetings with a complete non-empty transcript.
+- Store the full authorized transcript as raw evidence. Do not substitute notes or a generated summary.
+- Deduplicate within each source by meeting ID.
+- Match across sources by calendar event ID first, then date, normalized title, and participant overlap.
+- When two sources captured one meeting, create one canonical record and preserve all source IDs.
+- Keep unfinished and transcript-retrieval failures pending.
+- Skip clearly personal meetings unless the user explicitly requests them or they map to an authorized project.
 
-## Step 6: Process Each New Item
-For each new meeting/email/thread, create a processed intelligence file:
+## Email
+
+- Verify the connected mailbox identity before reading content.
+- If the profile is wrong or unavailable, skip email without advancing its cursor.
+- Discover broadly, then shortlist substantive threads using known projects and stakeholders.
+- Deduplicate by thread ID and retain deferred thread IDs.
+- Store the complete relevant thread when authorized, not only a search-result snippet.
+
+## Chat
+
+- Process direct conversations and channels in which the user actively participates.
+- Skip broadcast-only traffic and low-signal notifications.
+- Preserve thread identity, timestamps, speakers, and permalinks when available.
+
+## Processing format
 
 ```markdown
 ---
 date: YYYY-MM-DD
-source: granola | gmail | slack
+source: source_adapter
 type: meeting | email | thread
-projects: [project/path, ...]
-people: [Person Name, ...]
-tags: [relevant, tags]
+source_ids: {}
+projects: [none]
+people: []
+tags: []
+confidentiality: private
 ---
 
-# Descriptive Title -- YYYY-MM-DD
+# Descriptive title - YYYY-MM-DD
 
 ## Key Topics
 - ...
@@ -68,45 +82,24 @@ tags: [relevant, tags]
 - ...
 
 ## Action Items
-- [ ] Task --> Owner
+- [ ] Task -> Owner
 
-## Notable Quotes or Details
+## Notable Details
 - ...
 
-## Links
-**Projects:** [[projects/path|Display Name]] | ...
-**People:** [[teams/firstname-lastname|Person Name]] | ...
-
 ## Raw Source
-See: [[_raw/YYYY/MM/YYYY-MM-DD-description-raw]]
+See: [[_raw/YYYY/MM/YYYY-MM-DD-source-description-raw]]
 ```
 
-Also create raw files in intelligence/_raw/YYYY/MM/ with the full unprocessed content.
+## Relevance and propagation
 
-## Step 7: Propagate Updates
-After processing, check if any intelligence contains:
-- New info about a person --> update their teams/ file
-- A decision affecting a project --> append to that project's Decisions section in projects/
-- A change in strategy or org --> update context/
-- A new project mentioned for the first time --> flag it (don't auto-create)
+Read relevant project, people, context, and competitor hubs before synthesizing. Update an existing hub only for a durable, material change and link to the dated intelligence record. Flag a possible new project for user confirmation.
 
-## File Naming
-- Use lowercase-kebab-case: `2026-04-04-meeting-team-weekly.md`
-- Prefix emails with `email-`: `2026-04-04-email-pricing-update.md`
-- Prefix slack with `slack-`: `2026-04-04-slack-activity.md`
+## Failure contract
 
-## Known Project Paths
-<!-- CUSTOMIZE: Replace with your actual project paths after setup -->
-<!-- Example: product-launch/go-to-market, infrastructure/cloud-migration -->
-
-## Known Team Files
-<!-- CUSTOMIZE: Read the teams/ directory for current list -->
-<!-- The sync will auto-discover team files as they are created -->
-
-## Rules
-- NEVER delete or overwrite existing files
-- NEVER process items that already have intelligence files (deduplicate by date + title/subject)
-- Always store raw transcripts, not AI summaries from other tools
-- When in doubt about where something goes, use intelligence/
-- Keep processing focused -- skip low-value noise (calendar RSVPs, automated notifications, etc.)
-- At the end, print a summary: how many items processed, any propagation updates made, any flags for review.
+- Authorization failure is not an empty source.
+- A capped item remains pending.
+- A failed item remains pending with an error reason.
+- Never create a meeting record from notes alone when the required transcript is unavailable.
+- Never advance a cursor past an unresolved item unless the source supports an independent per-item cursor.
+- Never delete or overwrite source evidence.
